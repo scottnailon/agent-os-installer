@@ -1,0 +1,221 @@
+{
+  "_comment": [
+    "Catalogue of optional tabs. The spine (dashboard, memory, local brain, routing,",
+    "Hermes) is install.sh. Everything here is a la carte, one at a time, when you want it.",
+    "",
+    "'verdict' suggests what to set up FIRST, not how good a tab is. Every tab does",
+    "what it says. If you have no SEO suite, no CRM and no design workflow, several",
+    "'skip' entries move up the list. Edit the verdicts to match your own priorities.",
+    "",
+    "tabs.sh holds the install procedure for each id. This file is the catalogue only."
+  ],
+  "verdicts": {
+    "take": "Quick wins. Set these up first.",
+    "maybe": "Worth it in the right situation. Read the note.",
+    "skip": "Add later. Often covered by a dedicated tool you may already own."
+  },
+  "tabs": [
+    {
+      "id": "ffmpeg",
+      "label": "ffmpeg (shared prerequisite)",
+      "verdict": "take",
+      "cost": "free",
+      "unlocks": ["Video Studio", "OpenMontage", "Video Editor", "Music Studio"],
+      "requires": { "commands": [], "keys": [], "tabs": [] },
+      "note": "Every video tool needs this. 'ffmpeg/ffprobe not found' is the most common thing to hit across that whole cluster, and it is a one-line fix.",
+      "verify": "ffmpeg -version"
+    },
+    {
+      "id": "opencode",
+      "label": "opencode, free terminal coding agent",
+      "verdict": "take",
+      "cost": "free",
+      "unlocks": ["opencode tab"],
+      "requires": { "commands": [], "keys": [], "tabs": [] },
+      "note": "One curl, no key, no account. A well-regarded open-source project in its own right.",
+      "verify": "opencode --version"
+    },
+    {
+      "id": "seo-research",
+      "label": "SEO Research, your own Search Console",
+      "verdict": "take",
+      "cost": "free",
+      "unlocks": ["SEO > Research"],
+      "requires": { "commands": ["python3"], "keys": [], "tabs": [] },
+      "note": "Read-only OAuth against Search Console properties you own. Scores your own data into CTR leaks, striking distance and content gaps. High impressions plus low clicks plus no dedicated page is one of the highest-ROI keyword methods available, and it costs nothing.",
+      "verify": "test -f ~/.agentic-os/gsc-token.json"
+    },
+    {
+      "id": "wordpress",
+      "label": "WordPress multi-site publisher",
+      "verdict": "take",
+      "cost": "free",
+      "unlocks": ["Radar > Publish to WP", "any tab that deploys content"],
+      "requires": { "commands": [], "keys": [], "tabs": [] },
+      "note": "Publishes via the WordPress REST API using application passwords, with CSV bulk import for large estates. Application passwords are per-site and revocable, so this is safer than storing admin credentials.",
+      "verify": "test -f ~/.agentic-os/wordpress.json",
+      "rerunnable": true
+    },
+    {
+      "id": "agent-kanban",
+      "label": "Agent Kanban, Planner / Builder / Reviewer",
+      "verdict": "take",
+      "cost": "free",
+      "unlocks": ["Agent Kanban"],
+      "requires": { "commands": ["ollama"], "keys": [], "tabs": [] },
+      "note": "Three local agents work a board and a separate Reviewer verifies each card actually landed before marking it done. That adversarial check is a pattern worth lifting into your own tooling, and here it costs nothing to watch it work.",
+      "verify": "curl -fsS --max-time 4 http://localhost:11434/api/tags"
+    },
+    {
+      "id": "thumbnails",
+      "label": "Thumbnail Studio",
+      "verdict": "take",
+      "cost": "~$0.04 per image",
+      "unlocks": ["Thumbnails"],
+      "requires": { "commands": ["python3"], "keys": ["OPENAI_API_KEY"], "tabs": [] },
+      "note": "Cheap enough to experiment freely. Useful well beyond YouTube: social and featured images at volume. Every round logs to your vault, so you build a record of which instructions worked. Generated imagery is getting easier to spot, so it suits abstract and background work best.",
+      "verify": "test -f ~/.claude/skills/youtube-thumbnails/scripts/generate.py"
+    },
+    {
+      "id": "parasite-seo",
+      "label": "Parasite SEO, one keyword across every platform",
+      "verdict": "take",
+      "cost": "free",
+      "unlocks": ["SEO > Parasite SEO"],
+      "requires": { "commands": [], "keys": [], "tabs": [] },
+      "note": "Ships built in. Keyword arbitrage: take a query you already rank for and recreate it platform-native everywhere else, so you own more of page one with one idea. Nothing to install, and a genuinely good strategy.",
+      "verify": "true"
+    },
+    {
+      "id": "astros",
+      "label": "Hermes Astros, YouTube watcher",
+      "verdict": "maybe",
+      "cost": "free",
+      "unlocks": ["Hermes > Astros"],
+      "requires": { "commands": [], "keys": [], "tabs": ["hermes"] },
+      "note": "Ships built in and works keyless off channel RSS. Nothing to install. Pointing it at competitor channels in your niche makes a repeatable content-research routine.",
+      "verify": "command -v hermes"
+    },
+    {
+      "id": "omniroute",
+      "label": "OmniRoute, free builds across 90+ providers",
+      "verdict": "maybe",
+      "cost": "free",
+      "unlocks": ["OmniRoute"],
+      "requires": { "commands": ["npm"], "keys": [], "tabs": [] },
+      "note": "Runs a local gateway on :20128 and walks a fallback chain. If it pauses, that is it finding a provider that is free right now. Anthropic-compatible, so Claude Code can point at it.",
+      "verify": "curl -fsS --max-time 4 http://localhost:20128/v1/models"
+    },
+    {
+      "id": "video-editor",
+      "label": "Video Editor, editing by conversation",
+      "verdict": "maybe",
+      "cost": "your coding agent",
+      "unlocks": ["Video Editor"],
+      "requires": { "commands": ["ffmpeg"], "keys": [], "tabs": ["ffmpeg"] },
+      "note": "Describing an edit beats a timeline for simple jobs. Trimming dead air and burning in subtitles across a batch of videos is exactly what this does well.",
+      "verify": "command -v ffmpeg && { command -v claude || command -v opencode; }"
+    },
+    {
+      "id": "openseo",
+      "label": "OpenSEO, self-hosted keyword and backlink research",
+      "verdict": "maybe",
+      "cost": "DataForSEO per lookup",
+      "unlocks": ["SEO > OpenSEO"],
+      "requires": { "commands": ["docker"], "keys": ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"], "tabs": [] },
+      "note": "Runs a Docker container on :3001 and bills lookups to your DataForSEO account rather than a monthly seat. Especially good if you do not already subscribe to an SEO suite.",
+      "verify": "curl -fsS --max-time 4 http://localhost:3001"
+    },
+    {
+      "id": "hermes-profile",
+      "label": "Extra Hermes profiles",
+      "verdict": "maybe",
+      "cost": "per call",
+      "unlocks": ["profile pills in Hermes > Chat"],
+      "requires": { "commands": ["hermes"], "keys": ["OPENROUTER_API_KEY"], "tabs": ["hermes"] },
+      "note": "Each profile is an isolated instance with its own model, persona, memory and thread. Treat them like staff members. One per client or project is the obvious shape.",
+      "verify": "hermes profile list",
+      "rerunnable": true
+    },
+    {
+      "id": "deepseek-coder",
+      "label": "DeepSeek Coder",
+      "verdict": "maybe",
+      "cost": "very cheap",
+      "unlocks": ["DeepSeek Coder tab"],
+      "requires": { "commands": [], "keys": ["DEEPSEEK_API_KEY"], "tabs": [] },
+      "note": "DeepSeek's official API. Among the cheapest hosted coding models per token, which makes it a good cheap second opinion alongside your main coding agent.",
+      "verify": "test -f ~/.fcc/.env"
+    },
+    {
+      "id": "jcode",
+      "label": "jcode, a Rust coding agent",
+      "verdict": "maybe",
+      "cost": "free",
+      "unlocks": ["jcode tab"],
+      "requires": { "commands": [], "keys": [], "tabs": [] },
+      "note": "Open source, roughly 28MB of RAM, starts instantly. Genuinely light, which matters on a modest machine or when running several agents at once.",
+      "verify": "command -v jcode"
+    },
+    {
+      "id": "prime-agent",
+      "label": "Prime Agent",
+      "verdict": "maybe",
+      "cost": "free",
+      "unlocks": ["Prime Agent tab"],
+      "requires": { "commands": ["curl"], "keys": [], "tabs": [] },
+      "note": "Prime Intellect's open-source MIT coding agent, actively developed in its own right.",
+      "verify": "command -v prime-agent"
+    },
+    {
+      "id": "muse-code",
+      "label": "Muse Code",
+      "verdict": "maybe",
+      "cost": "per call",
+      "unlocks": ["Muse Code tab"],
+      "requires": { "commands": [], "keys": ["OPENROUTER_API_KEY"], "tabs": [] },
+      "note": "An agent-tuned coding model with a very large context, routed through OpenRouter. Uses the key you already have.",
+      "verify": "test -f ~/.fcc/.env"
+    },
+    {
+      "id": "paperclip",
+      "label": "Paperclip, an AI company with an org chart",
+      "verdict": "skip",
+      "cost": "per agent, budget capped",
+      "unlocks": ["Paperclip"],
+      "requires": { "commands": ["npx"], "keys": [], "tabs": [] },
+      "note": "An AI company with an org chart, agents and budget caps. Genuinely fun to watch. Worth a look when you have time to explore rather than a job to finish. Set a monthly budget per agent, and point Hermes agents at the FULL path from 'which hermes' rather than the bare name.",
+      "verify": "curl -fsS --max-time 4 http://localhost:3100"
+    },
+    {
+      "id": "radar",
+      "label": "Radar, X/Twitter news watcher",
+      "verdict": "skip",
+      "cost": "X Premium+ subscription",
+      "unlocks": ["Radar"],
+      "requires": { "commands": ["grok"], "keys": [], "tabs": ["hermes"] },
+      "note": "Watches X for AI news and shapes it into headline, why it is hot, your angle and a ready hook. Needs an X Premium+ subscription, so budget for that. The output shape is a useful template for any news source.",
+      "verify": "grok --version"
+    },
+    {
+      "id": "higgsfield",
+      "label": "Higgsfield image and video",
+      "verdict": "skip",
+      "cost": "paid",
+      "unlocks": ["Higgsfield tab"],
+      "requires": { "commands": [], "keys": [], "tabs": ["hermes"] },
+      "note": "Image and video generation driven through Hermes. If you already subscribe to Higgsfield you may prefer its own interface for heavy work, and this tab for driving it from inside the dashboard.",
+      "verify": "command -v hermes"
+    },
+    {
+      "id": "openmausbot",
+      "label": "OpenMausBot",
+      "verdict": "skip",
+      "cost": "free",
+      "unlocks": ["OpenMausBot tab"],
+      "requires": { "commands": [], "keys": [], "tabs": [] },
+      "note": "An open-source macOS chat app. macOS only, and it covers similar ground to the dashboard itself, so add it if you specifically want a native Mac client.",
+      "verify": "true"
+    }
+  ]
+}

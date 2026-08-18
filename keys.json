@@ -1,0 +1,353 @@
+{
+ "_comment": [
+  "The key manifest. One entry per API key Agent OS can use.",
+  "You never edit this file. You store keys with ./vault.sh --set or ./keys.sh --setup,",
+  "then ./keys.sh --apply fans each value out to the scattered locations below.",
+  "",
+  "Every destination carries an evidence field citing the file and line the claim came",
+  "from, verified against the agent-os-pack-2026-08-16 source. Pack versions move, so",
+  "run ./keys.sh --discover after an update to confirm nothing has changed.",
+  "",
+  "formats: env = KEY=value line | json = named field in a JSON config |",
+  "env-only = read from the process environment, no file is consulted.",
+  "",
+  "ANTHROPIC_API_KEY is deliberately absent and is blocked by keys.sh. The Claude tab",
+  "uses claude login. An empty value in a .env.local silently overrides that login and",
+  "is the single most common Claude tab failure."
+ ],
+ "tiers": {
+  "core": "Set these. They unlock the spine of the system.",
+  "useful": "Cheap and genuinely additive for most people.",
+  "optional": "Only if you will actually use that tab.",
+  "skip": "Something you almost certainly already own a better version of."
+ },
+ "keys": [
+  {
+   "id": "OPENROUTER_API_KEY",
+   "label": "OpenRouter",
+   "tier": "core",
+   "url": "https://openrouter.ai/keys",
+   "cost": "free tier",
+   "cost_detail": "Many models are free. With no credit you get 50 requests/day. $5 of credit once raises that to 1,000/day while still using free models.",
+   "unlocks": ["Hermes", "Jarvis", "Loop", "Goal Mode", "Fusion", "Mastermind", "OmniRoute", "Hy3 Coder", "OpenMontage", "Radar"],
+   "note": "The single highest-value key in the system. Everything agentic depends on it.",
+   "verify": { "type": "bearer", "url": "https://openrouter.ai/api/v1/key" },
+   "destinations": [
+    { "path": "~/.hermes/profiles/main/.env", "format": "env", "name": "OPENROUTER_API_KEY", "confidence": "verified",
+      "evidence": "src/lib/hermesApollo.ts:93 profiles/<activeProfile>/.env, activeProfile defaults to 'main'" }
+   ]
+  },
+  {
+   "id": "ELEVENLABS_API_KEY",
+   "label": "ElevenLabs",
+   "tier": "useful",
+   "url": "https://elevenlabs.io",
+   "cost": "free tier",
+   "cost_detail": "Free tier is enough to try it. Voice generation is metered by characters.",
+   "unlocks": ["Jarvis speech", "Video Studio voices", "Phone Agent"],
+   "note": "Jarvis LISTENS for free using the browser speech engine. This key only makes it SPEAK.",
+   "verify": { "type": "header", "header": "xi-api-key", "url": "https://api.elevenlabs.io/v1/user" },
+   "destinations": [
+    { "path": "~/.hermes/profiles/main/.env", "format": "env", "name": "ELEVENLABS_API_KEY", "confidence": "verified",
+      "evidence": "same Hermes profile .env" }
+   ]
+  },
+  {
+   "id": "OPENAI_API_KEY",
+   "label": "OpenAI (platform, NOT ChatGPT Plus)",
+   "tier": "useful",
+   "url": "https://platform.openai.com/api-keys",
+   "cost": "prepaid, ~$0.04 per image",
+   "cost_detail": "The OpenAI API is prepaid and COMPLETELY SEPARATE from ChatGPT Plus. Paying for ChatGPT does not fund the API. An 'insufficient_quota' error means an empty API credit balance, not a broken tool. Add credit at platform.openai.com > Settings > Billing. $5 goes a long way at four cents an image.",
+   "unlocks": ["Thumbnail Studio"],
+   "verify": { "type": "bearer", "url": "https://api.openai.com/v1/models" },
+   "destinations": [
+    { "path": "~/.claude/skills/youtube-thumbnails/.env", "format": "env", "name": "OPENAI_API_KEY", "confidence": "verified",
+      "evidence": "~/.claude/skills/youtube-thumbnails/.env" }
+   ]
+  },
+  {
+   "id": "INDEXCEPTIONAL_USER",
+   "label": "Indexceptional (email)",
+   "tier": "useful",
+   "url": "https://indexceptional.com",
+   "cost": "paid",
+   "cost_detail": "Submits published URLs to search engines for faster indexing. Pairs with INDEXCEPTIONAL_APP_PASSWORD.",
+   "unlocks": ["SEO publish and index", "Radar publish to WordPress"],
+   "note": "The step that closes the loop on a publishing pipeline. Without it you publish and wait.",
+   "destinations": [
+    { "path": "~/.agentic-os/indexceptional.env", "format": "env", "name": "INDEXCEPTIONAL_USER", "confidence": "verified",
+      "evidence": "src/app/api/seo/index/route.ts reads ~/.agentic-os/indexceptional.env" }
+   ]
+  },
+  {
+   "id": "INDEXCEPTIONAL_APP_PASSWORD",
+   "label": "Indexceptional (app password)",
+   "tier": "useful",
+   "url": "https://indexceptional.com",
+   "cost": "paid",
+   "unlocks": ["SEO publish and index", "Radar publish to WordPress"],
+   "note": "An app password, not your account password.",
+   "destinations": [
+    { "path": "~/.agentic-os/indexceptional.env", "format": "env", "name": "INDEXCEPTIONAL_APP_PASSWORD", "confidence": "verified",
+      "evidence": "src/app/api/radar/publish/route.ts, same env file" }
+   ]
+  },
+  {
+   "id": "DATAFORSEO_LOGIN",
+   "label": "DataForSEO login (email)",
+   "tier": "useful",
+   "url": "https://dataforseo.com",
+   "cost": "pay as you go",
+   "cost_detail": "Billed per lookup rather than a monthly subscription.",
+   "unlocks": ["OpenSEO"],
+   "note": "Pairs with DATAFORSEO_PASSWORD. Both are needed.",
+   "verify": { "type": "dataforseo", "url": "https://api.dataforseo.com/v3/appendix/user_data" },
+   "destinations": [
+    { "path": "~/open-seo/.env", "format": "env", "name": "DATAFORSEO_LOGIN", "confidence": "inferred",
+      "evidence": "OpenSEO is a separate project not bundled with the pack, so this cannot be verified from the pack source" }
+   ]
+  },
+  {
+   "id": "DATAFORSEO_PASSWORD",
+   "label": "DataForSEO password",
+   "tier": "useful",
+   "url": "https://dataforseo.com",
+   "cost": "pay as you go",
+   "cost_detail": "Billed per lookup rather than a monthly subscription.",
+   "unlocks": ["OpenSEO"],
+   "destinations": [
+    { "path": "~/open-seo/.env", "format": "env", "name": "DATAFORSEO_PASSWORD", "confidence": "inferred",
+      "evidence": "OpenSEO is a separate project not bundled with the pack, so this cannot be verified from the pack source" }
+   ]
+  },
+  {
+   "id": "GEMINI_API_KEY",
+   "label": "Google AI Studio",
+   "tier": "optional",
+   "url": "https://aistudio.google.com/apikey",
+   "cost": "free tier",
+   "unlocks": ["Live translate"],
+   "verify": { "type": "query", "param": "key", "url": "https://generativelanguage.googleapis.com/v1beta/models" },
+   "destinations": [
+    { "path": "~/.agentic-os/gemini.env", "format": "env", "name": "GEMINI_API_KEY", "confidence": "verified",
+      "evidence": "src/app/api/translate/gemini-live/route.ts:18 path.join(homedir(),'.agentic-os','gemini.env')" }
+   ]
+  },
+  {
+   "id": "DEEPSEEK_API_KEY",
+   "label": "DeepSeek",
+   "tier": "optional",
+   "url": "https://platform.deepseek.com",
+   "cost": "very cheap",
+   "cost_detail": "DeepSeek's official API. Fast and among the cheapest per token of any hosted coding model.",
+   "unlocks": ["DeepSeek Coder tab"],
+   "destinations": [
+    { "path": "~/.fcc/.env", "format": "env", "name": "DEEPSEEK_API_KEY", "confidence": "verified",
+      "evidence": "install/37-DEEPSEEK-CODER.md documents ~/.fcc/.env" }
+   ]
+  },
+  {
+   "id": "GLM_API_KEY",
+   "label": "Z.ai GLM",
+   "tier": "optional",
+   "url": "https://z.ai",
+   "cost": "paid",
+   "unlocks": ["GLM 5.2 tab"],
+   "aliases": ["ZAI_API_KEY", "Z_AI_API_KEY"],
+   "note": "The GLM tab also accepts ZAI_API_KEY or Z_AI_API_KEY as aliases for the same value.",
+   "destinations": [
+    { "path": "~/.hermes/profiles/glm-5-2/.env", "format": "env", "name": "GLM_API_KEY", "confidence": "verified",
+      "evidence": "src/app/api/glm/chat/route.ts:38 'Set GLM_API_KEY in ~/.hermes/profiles/glm-5-2/.env'" }
+   ]
+  },
+  {
+   "id": "SAKANA_API_KEY",
+   "label": "Sakana Fugu",
+   "tier": "optional",
+   "url": "https://api.sakana.ai",
+   "cost": "paid, ~quarter of Fusion",
+   "cost_detail": "Claimed comparable output to Fusion at roughly a quarter of the cost. Worth it only if you run high-volume verification loops.",
+   "unlocks": ["Fugu model council, an alternative judge for Loop"],
+   "destinations": [
+    { "path": "~/.hermes/profiles/sakana-fugu/.env", "format": "env", "name": "SAKANA_API_KEY", "confidence": "verified",
+      "evidence": "install/17-EXTRA-MODELS.md:44 ~/.hermes/profiles/sakana-fugu/.env" }
+   ]
+  },
+  {
+   "id": "ROUTER9_API_KEY",
+   "label": "Router9",
+   "tier": "optional",
+   "url": "https://router9.ai",
+   "cost": "varies",
+   "unlocks": ["an additional Free Claude Code provider"],
+   "destinations": [
+    { "path": "~/.agentic-os/fcc.json", "format": "json", "name": "router9Key", "confidence": "inferred",
+      "evidence": "referenced alongside ~/.agentic-os/fcc.json; field name not confirmed, verify in the tab" }
+   ]
+  },
+  {
+   "id": "YT_API_KEY",
+   "label": "YouTube Data API",
+   "tier": "optional",
+   "url": "https://console.cloud.google.com/apis/credentials",
+   "cost": "free",
+   "unlocks": ["Hermes Astros, higher limits"],
+   "note": "Astros works keyless by default using channel RSS. Only add this if you hit limits.",
+   "destinations": [
+    { "path": "ENV_ONLY", "format": "env-only", "name": "YT_API_KEY", "confidence": "verified",
+      "evidence": "src/app/api/astros/config/route.ts:32 reads process.env.YT_API_KEY only; the astros config.json holds channels and keywords, not the key" }
+   ]
+  },
+  {
+   "id": "SERPAPI_KEY",
+   "label": "SerpApi",
+   "tier": "optional",
+   "url": "https://serpapi.com",
+   "cost": "free tier then paid",
+   "unlocks": ["SEO Research, competitor SERP layer"],
+   "note": "Not required. SEO Research works on your own Search Console data alone.",
+   "destinations": [
+    { "path": "ENV_ONLY", "format": "env-only", "name": "SERPAPI_KEY", "confidence": "verified",
+      "evidence": "src/components/SEOView.tsx:490 documents it as an env var only" }
+   ]
+  },
+  {
+   "id": "OLLAMA_API_KEY",
+   "label": "Ollama Cloud",
+   "tier": "optional",
+   "url": "https://ollama.com",
+   "cost": "cloud rates",
+   "unlocks": ["GLM Code / GPT 5.6 Code tab"],
+   "note": "Only for the CLOUD models. Local Ollama needs no key at all.",
+   "destinations": [
+    { "path": "ENV_ONLY", "format": "env-only", "name": "OLLAMA_API_KEY", "confidence": "verified",
+      "evidence": "src/lib/glmcode.ts:39 forwards process.env.OLLAMA_API_KEY; no file is read" }
+   ]
+  },
+  {
+   "id": "XAI_API_KEY",
+   "label": "xAI (Grok API)",
+   "tier": "optional",
+   "url": "https://console.x.ai",
+   "cost": "paid",
+   "unlocks": ["Grok via API rather than the CLI login"],
+   "note": "Grok Build uses your X Premium+ login instead. Only needed for direct API access.",
+   "destinations": [
+    { "path": "ENV_ONLY", "format": "env-only", "name": "XAI_API_KEY", "confidence": "verified",
+      "evidence": "read from process.env only; no file is consulted" }
+   ]
+  },
+  {
+   "id": "NOUS_API_KEY",
+   "label": "Nous Research",
+   "tier": "optional",
+   "url": "https://nousresearch.com",
+   "cost": "paid",
+   "unlocks": ["Nous models where offered"],
+   "destinations": [
+    { "path": "ENV_ONLY", "format": "env-only", "name": "NOUS_API_KEY", "confidence": "verified",
+      "evidence": "read from process.env only" }
+   ]
+  },
+  {
+   "id": "OMNIROUTE_API_KEY",
+   "label": "OmniRoute (optional)",
+   "tier": "optional",
+   "url": "https://omniroute.ai",
+   "cost": "free tier",
+   "unlocks": ["higher OmniRoute limits"],
+   "note": "OmniRoute works with no key at all. This only raises limits.",
+   "destinations": [
+    { "path": "ENV_ONLY", "format": "env-only", "name": "OMNIROUTE_API_KEY", "confidence": "verified",
+      "evidence": "read from process.env only" }
+   ]
+  },
+  {
+   "id": "HEYGEN_API_KEY",
+   "label": "HeyGen",
+   "tier": "skip",
+   "url": "https://heygen.com",
+   "cost": "paid per seat",
+   "unlocks": ["Video Studio avatars"],
+   "note": "HeyGen's own interface is better than this tab, which adds a text box. Buy it directly if you want AI avatars.",
+   "verify": { "type": "header", "header": "X-Api-Key", "url": "https://api.heygen.com/v1/user/remaining_quota" },
+   "destinations": [
+    { "path": "~/.agentic-os/heygen.env", "format": "env", "name": "HEYGEN_API_KEY", "confidence": "verified",
+      "evidence": "join(HOME,'.agentic-os','heygen.env')" }
+   ]
+  },
+  {
+   "id": "SUNO_API_KEY",
+   "label": "Suno (via a provider such as sunoapi.org)",
+   "tier": "skip",
+   "url": "https://sunoapi.org",
+   "cost": "paid",
+   "unlocks": ["Music Studio"],
+   "destinations": [
+    { "path": "~/.agentic-os/suno.env", "format": "env", "name": "SUNO_API_KEY", "confidence": "verified",
+      "evidence": "join(HOME,'.agentic-os','suno.env')" }
+   ]
+  },
+  {
+   "id": "HUNTER_API_KEY",
+   "label": "Hunter.io",
+   "tier": "skip",
+   "url": "https://hunter.io",
+   "cost": "free tier",
+   "unlocks": ["Leads, domain to contact email"],
+   "note": "Finds names and addresses, then stops. No sequencing, tracking or deliverability. Only worth it as a feeder into a real CRM.",
+   "verify": { "type": "query", "param": "api_key", "url": "https://api.hunter.io/v2/account" },
+   "destinations": [
+    { "path": "~/.agentic-os/outreach/config.json", "format": "json", "name": "hunterKey", "confidence": "verified",
+      "evidence": "src/lib/outreachConfig.ts:13 CONFIG_FILE, getHunterKey() reads cfg.hunterKey first" }
+   ]
+  },
+  {
+   "id": "APOLLO_API_KEY",
+   "label": "Apollo.io",
+   "tier": "skip",
+   "url": "https://www.apollo.io",
+   "cost": "paid",
+   "unlocks": ["Leads, people database search"],
+   "destinations": [
+    { "path": "~/.agentic-os/outreach/config.json", "format": "json", "name": "apolloKey", "confidence": "verified",
+      "evidence": "src/lib/outreachConfig.ts same pattern as hunterKey" }
+   ]
+  },
+  {
+   "id": "FIRECRAWL_API_KEY",
+   "label": "Firecrawl",
+   "tier": "skip",
+   "url": "https://firecrawl.dev",
+   "cost": "free tier",
+   "unlocks": ["Leads enrichment"],
+   "note": "Bills per crawl and adds up fast if left running across large lists.",
+   "destinations": [
+    { "path": "~/.agentic-os/outreach/config.json", "format": "json", "name": "firecrawlKey", "confidence": "verified",
+      "evidence": "src/lib/outreachConfig.ts:35 getFirecrawlKey() reads cfg.firecrawlKey first" }
+   ]
+  }
+ ],
+ "blocked": [
+  {
+   "id": "ANTHROPIC_API_KEY",
+   "why": "The Claude tab authenticates with 'claude login' (browser OAuth) against your Claude plan. Setting this key at all switches you to pay-per-token. Setting it EMPTY silently overrides your login and breaks the tab entirely. keys.sh refuses to write it.",
+   "instead": "Run: claude login"
+  }
+ ],
+ "no_key_needed": [
+  { "what": "Local Ollama building", "note": "Agent Factory, Game Studio, Agent Kanban. Free forever, nothing leaves your machine." },
+  { "what": "Hermes Astros", "note": "Keyless tier reads channel RSS. Works day one." },
+  { "what": "Jarvis listening", "note": "Browser speech recognition. Chrome or Safari." },
+  { "what": "Claude tab", "note": "claude login" },
+  { "what": "Free Claude Code, OmniRoute, opencode", "note": "Free models, no account" },
+  { "what": "SEO Research", "note": "Search Console OAuth, read-only, no API key" },
+  { "what": "Parasite SEO", "note": "Ships built in, nothing to configure" }
+ ],
+ "formats": {
+  "env": "KEY=value line in a file the tool reads",
+  "json": "a named field inside a JSON config the tool reads",
+  "env-only": "the tool reads this ONLY from the process environment. No file is consulted, so it must be exported before the dashboard starts."
+ }
+}

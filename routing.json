@@ -1,0 +1,126 @@
+{
+  "_comment": [
+    "Declarative model routing for Agent OS. This is the spec that stage 4 enforces.",
+    "Each tab talks to its own model. There is no shared pipeline.",
+    "Read this before changing any model anywhere. Hand this to an AI agent instead of",
+    "letting it guess, because the common failure is an assistant 'tidying up' by pointing",
+    "everything at one model."
+  ],
+  "rules": {
+    "never_global_default": [
+      "gemma2",
+      "gemma-2",
+      "qwen2.5-coder",
+      "phi3",
+      "llama3.2",
+      "tinyllama"
+    ],
+    "never_use": {
+      "patterns": [
+        "*-alpha",
+        "sonoma-*",
+        "owl-*",
+        "*-cloaked",
+        "*stealth*"
+      ],
+      "why": "Labs release these free for a few weeks to collect data, then remove them or start charging. Your setup breaks with no warning and no error you can act on. Always use a named :free model instead."
+    },
+    "inheritance": [
+      "Jarvis runs on top of Hermes, so Jarvis is only ever as smart as Hermes' model.",
+      "Subagents inherit the model of whatever spawned them."
+    ],
+    "aliases": {
+      "GLM_API_KEY": [
+        "ZAI_API_KEY",
+        "Z_AI_API_KEY"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "local-build",
+      "label": "Free on-device building (Agent Factory, Game Studio, Agent Kanban)",
+      "config": "~/.fcc/.env",
+      "key": "MODEL",
+      "recommended": "ollama/gemma2",
+      "alternative": "ollama/qwen2.5-coder:14b",
+      "note": "gemma2 is better at animation and generative art. qwen2.5-coder is sharper at full apps. Same local speed, so pick by job.",
+      "allow": [
+        "ollama/*"
+      ],
+      "cost": "free"
+    },
+    {
+      "id": "coding-agent",
+      "label": "Free Claude Code and coding subagents",
+      "config": "~/.fcc/.env",
+      "key": "MODEL",
+      "recommended": "open_router/qwen/qwen3-coder:free",
+      "alternative": "open_router/google/gemma-4-31b-it:free",
+      "allow": [
+        "open_router/*:free",
+        "ollama/*"
+      ],
+      "deny_reason": {
+        "http_402": "Your free model was retired. Swap to a current named :free model.",
+        "http_429": "OpenRouter free cap is 50 requests/day with no credit. Add $5 once to raise it to 1,000/day, or switch to local for unlimited."
+      },
+      "cost": "free"
+    },
+    {
+      "id": "hermes",
+      "label": "Hermes, and therefore Jarvis, Loop, Goal Mode, Radar, Mastermind",
+      "config": "~/.hermes/profiles/<name>/config.yaml",
+      "key": "model",
+      "recommended": "anthropic/claude-haiku-4.5",
+      "deny": [
+        "ollama/*",
+        "gemma*",
+        "phi3*",
+        "tinyllama*"
+      ],
+      "why_deny": "Small local models cannot drive the Hermes tool loop. You get an agent that looks like it is working and silently does nothing.",
+      "cost": "per call via OpenRouter"
+    },
+    {
+      "id": "claude-tab",
+      "label": "Claude tab",
+      "config": "~/.agentic-os/config.json",
+      "key": "claudeModel",
+      "auth": "claude login (browser OAuth, uses your Claude plan)",
+      "recommended": "claude-opus-4-8",
+      "alternative": "claude-fable-5",
+      "note": "Opus 4.8 is lighter on plan tokens. Fable 5 is stronger on the hardest jobs and roughly double the cost.",
+      "trap": "Never set ANTHROPIC_API_KEY. An EMPTY value in a .env.local silently overrides your login and breaks the tab. This is the single most common Claude tab failure."
+    },
+    {
+      "id": "video-authoring",
+      "label": "Video Studio Create, OpenMontage",
+      "config": "per tool",
+      "requirement": "a strong model",
+      "why": "The renderer renders whatever composition the model authors. A small model produces five-second colour blobs and people blame the renderer."
+    },
+    {
+      "id": "hosted-coding-tabs",
+      "label": "DeepSeek Coder, Muse Code, jcode, Prime Agent, GPT 5.6 Code",
+      "config": "~/.fcc/.env or the tab's own settings",
+      "note": "Each of these is its own tab with its own brain. They do NOT share a model with Hermes or with the local builder. Setting one does not set the others.",
+      "deny": [
+        "ollama/*",
+        "gemma*",
+        "phi3*",
+        "tinyllama*"
+      ],
+      "why_deny": "These tabs drive multi-step build loops. A small local model cannot complete them and fails in ways that look like the tab is broken."
+    }
+  ],
+  "policy": {
+    "_comment": "One rule to follow when picking a brain for a job.",
+    "disposable_and_visual": "local Ollama, free and instant",
+    "everyday_web_app": "GPT 5.6 Code, or GLM-5.2 if you want it cheaper",
+    "free_and_can_wait": "opencode or OmniRoute",
+    "one_shot_single_file": "Hy3 Coder, a few cents",
+    "hard_reasoning_or_client_facing": "real Claude",
+    "second_opinion": "run the same prompt through Kimi or Qwen and compare"
+  }
+}

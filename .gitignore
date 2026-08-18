@@ -1,0 +1,28 @@
+# Never commit secrets. This toolkit stores none, and this keeps it that way.
+*.env
+.env
+.env.*
+!*.env.example
+*-keys.env
+agent-os-keys.env
+*.age
+keys.age
+discovered-paths.txt
+health.log
+update.log
+
+# Local state
+.agent-os-install/
+.agent-os-vault/
+
+# The Agent OS pack itself. This repo is the installer, not the pack.
+agent-os/
+source/
+install/
+extras/
+*.zip
+
+# OS noise
+.DS_Store
+Thumbs.db
+node_modules/
