@@ -11,8 +11,13 @@
 #   ./install.sh --stage 4          run only stage 4
 #   ./install.sh --dry-run          print what it would do, change nothing
 #   ./install.sh --yes              assume yes to safe prompts (still stops for keys)
+#   ./install.sh --keep-going       record a failing gate and carry on to the next stage
+#   ./install.sh --no-prompt        never block on a human step, skip it and note it
 #   ./install.sh --no-hermes        skip stage 5 entirely
 #   ./install.sh --fix-claude-tab   remove the empty ANTHROPIC_API_KEY trap and exit
+#
+# Any stage whose gate already passes is skipped without being re-run, so this only
+# ever installs what is actually missing.
 #
 # This script will never: enter a password, enter card details, perform a browser
 # login on your behalf, or hand-code a replacement for a dashboard tab.
@@ -23,7 +28,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
 PORT="${PORT:-3737}"
-ASSUME_YES=0; DRY=0; ONLY=""; FROM=""; SKIP_HERMES=0
+ASSUME_YES=0; DRY=0; ONLY=""; FROM=""; SKIP_HERMES=0; KEEP_GOING=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -33,9 +38,11 @@ while [ $# -gt 0 ]; do
     --port)    PORT="$2"; shift 2 ;;
     --yes|-y)  ASSUME_YES=1; shift ;;
     --dry-run) DRY=1; shift ;;
+    --keep-going) KEEP_GOING=1; shift ;;
+    --no-prompt) AOS_NOPROMPT=1; export AOS_NOPROMPT; shift ;;
     --no-hermes) SKIP_HERMES=1; shift ;;
     --fix-claude-tab) FIX_CLAUDE=1; shift ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
     *) warn "unknown option: $1"; shift ;;
   esac
 done
@@ -57,6 +64,9 @@ runsh() { # runsh "shell string"
 confirm() {
   [ "$ASSUME_YES" = 1 ] && return 0
   [ "$DRY" = 1 ] && return 0
+  # Nobody there to answer: decline rather than hang. --yes above is how an
+  # unattended run says yes to everything safe.
+  is_interactive || { dim "no terminal, declining: $1"; return 1; }
   printf '%s%s [y/N] %s' "$C_YEL" "$1" "$C_RST"
   read -r a
   case "$a" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
@@ -68,6 +78,12 @@ checkpoint() { # checkpoint "what you must do" "how to verify"
   say "  $1"
   [ -n "${2:-}" ] && dim "  verify: $2"
   [ "$DRY" = 1 ] && return 0
+  if ! is_interactive; then
+    warn "Left for you to do. This stage will keep failing its gate until it is done."
+    NOTED_HUMAN_STEPS="${NOTED_HUMAN_STEPS:-}
+  $1"
+    return 0
+  fi
   printf '%sPress return when done, or Ctrl-C to stop. %s' "$C_YEL" "$C_RST"
   read -r _
 }
@@ -231,8 +247,7 @@ stage_2() {
   say "  a) install Obsidian (free, https://obsidian.md), create a vault in Documents, re-run"
   say "  b) enter the full path to an existing vault now"
   [ "$DRY" = 1 ] && return 1
-  printf 'Vault path (blank to skip): '
-  read -r v
+  v="$(ask_line 'Vault path (blank to skip): ')"
   [ -z "$v" ] && { warn "Skipped. Stages above will work, but memory-backed features will not."; return 1; }
   v="${v/#\~/$HOME}"
   [ -d "$v" ] || { bad "No such folder: $v"; return 1; }
@@ -365,8 +380,7 @@ stage_5() {
     dim "Many models are free. With no credit you get 50 requests/day; \$5 of credit raises that to 1,000."
     dim "This script will never enter your card. Create the key yourself and paste it below."
     if [ "$DRY" != 1 ]; then
-      printf 'OpenRouter key (blank to skip): '
-      read -r k
+      k="$(ask_line 'OpenRouter key (blank to skip): ')"
       if [ -n "$k" ]; then
         touch "$env"
         grep -v '^OPENROUTER_API_KEY=' "$env" > "$env.tmp" 2>/dev/null || true
@@ -400,32 +414,86 @@ YAML
 }
 
 # ================================================================= driver
+stage_label() {
+  case "$1" in
+    0) echo "Prerequisites" ;;   1) echo "Dashboard" ;;
+    2) echo "Memory bus" ;;      3) echo "Free local brain" ;;
+    4) echo "Model routing" ;;   5) echo "Executor (Hermes)" ;;
+  esac
+}
+
+# The gate is the single source of truth for "is this already installed". Running it
+# quietly before the stage body is what turns this into: install only what is missing.
+gate_passes() {
+  case "$1" in
+    0) gate_prereqs ;;      1) gate_dashboard ;;
+    2) gate_vault ;;        3) gate_local_brain ;;
+    4) gate_routing ;;      5) gate_executor ;;
+  esac >/dev/null 2>&1
+}
+
 say "Agent OS staged installer"
-dim "platform: $PLATFORM/$ARCH   pkg: $PKG   port: $PORT   dry-run: $DRY"
+dim "platform: $PLATFORM/$ARCH   pkg: $PKG   port: $PORT   dry-run: $DRY   keep-going: $KEEP_GOING"
 
 start=0
 if [ -n "$FROM" ]; then start="$FROM"; fi
+
+ALREADY=""; INSTALLED=""; FAILED_STAGES=""
 
 for n in 0 1 2 3 4 5; do
   if [ -n "$ONLY" ] && [ "$n" != "$ONLY" ]; then continue; fi
   if [ -z "$ONLY" ] && [ "$n" -lt "$start" ]; then continue; fi
 
+  # Already in place? Say so and move on. Nothing is re-run, nothing is re-downloaded.
+  # --stage N is an explicit "do this one anyway", so it bypasses the skip.
+  if [ -z "$ONLY" ] && gate_passes "$n"; then
+    ok "Stage $n - $(stage_label "$n"): already in place, skipping"
+    state_set "stage_$n" pass
+    ALREADY="$ALREADY $n"
+    continue
+  fi
+
   if "stage_$n"; then
     state_set "stage_$n" pass
+    INSTALLED="$INSTALLED $n"
   else
     state_set "stage_$n" fail
+    FAILED_STAGES="$FAILED_STAGES $n"
     say ""
-    bad "Stage $n did not pass its gate."
-    say "Stages are dependency-ordered, so there is no point continuing past a failure."
-    say "Fix the item above, then re-run:"
-    say ""
-    say "  ${C_B}./install.sh --from $n${C_RST}"
-    say ""
-    exit 1
+    bad "Stage $n - $(stage_label "$n") did not pass its gate."
+    if [ "$KEEP_GOING" != 1 ]; then
+      say "Stages are dependency-ordered, so there is no point continuing past a failure."
+      say "Fix the item above, then re-run:"
+      say ""
+      say "  ${C_B}./install.sh --from $n${C_RST}"
+      say ""
+      exit 1
+    fi
+    warn "Carrying on. Later stages may fail only as a consequence of this one."
   fi
 done
 
 hdr "Done"
+[ -n "$ALREADY" ]   && ok   "Already in place, untouched:$ALREADY"
+[ -n "$INSTALLED" ] && ok   "Installed or repaired this run:$INSTALLED"
+
+if [ -n "${NOTED_HUMAN_STEPS:-}" ]; then
+  say ""
+  warn "Left for you, because this run had no terminal to ask on:"
+  printf '%s\n' "$NOTED_HUMAN_STEPS"
+fi
+
+if [ -n "$FAILED_STAGES" ]; then
+  say ""
+  bad "Still failing:$FAILED_STAGES"
+  first="$(printf '%s' "$FAILED_STAGES" | tr ' ' '\n' | grep -v '^$' | head -1)"
+  say "Fix the lowest number first, the rest may be failing only because of it:"
+  say ""
+  say "  ${C_B}./install.sh --from $first${C_RST}"
+  say ""
+  exit 1
+fi
+
 ok "Every stage attempted has passed its gate."
 say ""
 say "Next:"
