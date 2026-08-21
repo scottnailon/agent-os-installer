@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-regressions.sh - guards two bug classes that are easy to reintroduce.
+# test-regressions.sh - guards the bug classes that are easy to reintroduce.
 #
 # Kept separate from test.sh so the file stays small enough to read in one sitting.
 #
@@ -124,11 +124,81 @@ test_routing_reads_a_quoted_model_value() {
   esac
 }
 
+
+# ------------------------------------------------------- one command, no blocking
+# The whole promise of setup.sh is one command that installs what is missing and
+# moves on. Three things break that promise, and all three are one careless edit
+# away, so each is asserted rather than assumed.
+
+# 1. An unattended run must never sit on a read() nobody will answer. A prompt that
+#    slips back in shows up as a cron job that hangs until it is killed, which is
+#    invisible until someone notices the health check stopped arriving.
+test_unattended_setup_never_blocks() {
+  local out rc
+  # No stdin, and a short timeout. A blocking prompt cannot survive both.
+  out="$(cd "$K" && timeout 120 bash ./setup.sh --dry-run --no-keys </dev/null 2>&1)"; rc=$?
+  if [ "$rc" = 124 ]; then
+    echo "setup.sh --dry-run --no-keys blocked and had to be killed"
+    printf '%s\n' "$out" | tail -20
+    return 1
+  fi
+  case "$out" in
+    *"Setup complete"*) return 0 ;;
+    *) echo "setup.sh did not reach the end. Last lines:"; printf '%s\n' "$out" | tail -20; return 1 ;;
+  esac
+}
+
+# 2. A failing stage must not end the run. The old behaviour exited at the first
+#    failure, so a missing Obsidian vault at stage 2 hid whether stages 3, 4 and 5
+#    would have worked, and you found out one re-run at a time.
+test_a_failing_stage_does_not_end_the_run() {
+  local out
+  # Nothing is installed in the sandbox, so stage 2 onwards all fail. Every one of
+  # them must still be attempted.
+  out="$(cd "$K" && timeout 120 bash ./install.sh --from 2 --yes --dry-run --keep-going --no-prompt </dev/null 2>&1)"
+  case "$out" in
+    *"Stage 5"*) : ;;
+    *) echo "install.sh --keep-going stopped before stage 5:"; printf '%s\n' "$out" | tail -20; return 1 ;;
+  esac
+  case "$out" in
+    *"Still failing"*) return 0 ;;
+    *) echo "no summary of failing stages was printed"; printf '%s\n' "$out" | tail -20; return 1 ;;
+  esac
+}
+
+# 3. Without --keep-going the old halt must still be available, because a scripted
+#    caller that wants to stop at the first failure has no other way to say so.
+test_stop_on_fail_still_halts() {
+  local out
+  out="$(cd "$K" && timeout 120 bash ./install.sh --from 2 --yes --dry-run --no-prompt </dev/null 2>&1)"
+  case "$out" in
+    *"Stage 5"*) echo "install.sh carried on past a failure without --keep-going:"; printf '%s\n' "$out" | tail -20; return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# 4. A stage whose gate already passes must be skipped, not re-run. This is what
+#    makes a second ./setup.sh cheap, and what stops it re-downloading a 5GB model.
+test_a_passing_gate_skips_its_stage() {
+  local out
+  # Stage 0's gate passes in the sandbox (node and python are present in CI), so the
+  # driver should say so rather than walking the package installs again.
+  out="$(cd "$K" && timeout 120 bash ./install.sh --yes --dry-run --keep-going --no-prompt </dev/null 2>&1)"
+  case "$out" in
+    *"already in place, skipping"*) return 0 ;;
+    *) echo "no stage was reported as already in place:"; printf '%s\n' "$out" | head -30; return 1 ;;
+  esac
+}
+
 printf '\n%sRegressions%s\n' "$B" "$N"
 t "a nested run inherits the parent lock"    test_nested_run_inherits_lock
 t "a child exit keeps the parent lock"       test_child_exit_keeps_parent_lock
 t "unquote strips only quotes and spaces"    test_unquote_strips_only_quotes_and_spaces
 t "routing reads a quoted model value"       test_routing_reads_a_quoted_model_value
+t "an unattended setup never blocks"         test_unattended_setup_never_blocks
+t "a failing stage does not end the run"     test_a_failing_stage_does_not_end_the_run
+t "without --keep-going it still halts"      test_stop_on_fail_still_halts
+t "a passing gate skips its stage"           test_a_passing_gate_skips_its_stage
 
 printf '\n%s================================%s\n' "$B" "$N"
 printf '%s%s passed%s' "$G" "$PASS" "$N"
