@@ -470,3 +470,23 @@ gate_executor() {
   fi
   return $rc
 }
+
+# ---------- interaction mode --------------------------------------------------
+# AOS_NOPROMPT=1 means nobody is sitting in front of this. Every blocking prompt
+# returns empty and every human checkpoint prints its instruction and moves on,
+# instead of waiting forever on a read that will never be answered.
+#
+# It is opt-in. setup.sh sets it when you pass --no-keys, and when stdin is not a
+# terminal (cron, CI, a pipe), so an unattended run cannot hang.
+AOS_NOPROMPT="${AOS_NOPROMPT:-0}"
+
+is_interactive() { [ "${AOS_NOPROMPT:-0}" != 1 ]; }
+
+ask_line() { # ask_line "prompt: "  -> echoes the answer, empty when non-interactive
+  local a=""
+  if is_interactive; then
+    printf '%s' "$1" >&2
+    read -r a || a=""
+  fi
+  printf '%s' "$a"
+}
