@@ -50,18 +50,22 @@ is what makes the whole system sing.
 Full instructions are in `README.md`. The short form:
 
 ```bash
-./setup.sh              # everything missing, installed, in dependency order
-./setup.sh --no-keys    # same, unattended: no prompts, human steps named and skipped
-./setup.sh --ask        # confirm each install, pause between steps
-./preflight.sh          # read-only, re-verify at any time
+./aos                   # install everything missing, in dependency order
+./aos status            # what is working. Installs nothing, takes no lock
+./aos check             # the same, with a fix line for each thing
+./aos --no-keys         # unattended: no prompts, human steps named and skipped
+./aos --verbose         # full output instead of one line per thing
+./aos log               # the transcript of the last run
 ./test.sh               # sandboxed test suite
 ```
 
-`setup.sh` runs each gate before its stage. A gate that already passes means that stage
-is already installed, so it is skipped rather than re-run. A gate that fails is recorded
-and the run continues, because a single failure at stage 2 used to hide whether stages 3
-to 5 would have worked. The summary at the end is the authoritative list of what is
-still missing.
+`./aos` is a dispatcher over `setup.sh`, `preflight.sh`, `keys.sh`, `tabs.sh`,
+`update.sh` and `vault.sh`. Every extra argument passes straight through and every
+script stays callable on its own, so nothing here is hidden behind it.
+
+A normal run prints one line per stage and appends everything the child scripts said to
+`~/.agent-os-install/setup.log`. When diagnosing, read that log rather than re-running
+with `--verbose`: it already has the previous run in it.
 
 Mark any stage you deliberately skip, so the daily health check treats it as intentional
 rather than flagging it every morning:
@@ -236,6 +240,7 @@ Symptom first, cause second, because that is the direction you meet them in.
 | Everything slow, fans spinning | Too many local models at once. One big job at a time |
 | A tab looks unstyled or missing | That feature is in a newer release. Update the pack rather than rebuilding the tab |
 | `pip install hermes-agent` fails | Python below 3.10 |
+| "Waiting for another run to finish" and nothing is running | A crashed run left a lock. Fixed in 1.2.0. On older versions: `rm -rf ~/.agent-os-install/lock` |
 
 For anything not listed: open your coding agent **inside the pack folder** and paste the
 error verbatim. It can read the whole folder, which is more context than any generic
