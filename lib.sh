@@ -137,6 +137,30 @@ STATE_FILE="$STATE_DIR/state"
 LOCK_DIR="$STATE_DIR/lock"
 
 # ---------- lock ----------
+# Is this pid a process that is genuinely still working?
+#
+# NOT kill -0. That succeeds on a ZOMBIE: a process that has already exited but whose
+# parent has not reaped it yet. A run killed with kill -9 usually leaves one behind for
+# a while, so kill -0 reported the owner as alive and the lock could never be reaped.
+# You got "Waiting for another run to finish" forever, for a process that was dead.
+# ps reports the state letter, and Z means dead.
+pid_alive() {
+  local st
+  case "${1:-}" in ''|*[!0-9]*) return 1 ;; esac
+  st="$(ps -o stat= -p "$1" 2>/dev/null | tr -d ' ')"
+  [ -n "$st" ] || return 1            # no such process
+  case "$st" in Z*) return 1 ;; esac  # zombie: exited, not yet reaped
+  return 0
+}
+
+# Age of a path in seconds. Portable across GNU and BSD stat.
+path_age_secs() {
+  local m now
+  m="$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null)" || return 1
+  now="$(date +%s)"
+  echo $(( now - m ))
+}
+
 # mkdir is atomic, so it works as a lock without flock (which macOS lacks).
 acquire_lock() {
   mkdir -p "$STATE_DIR"
@@ -150,16 +174,31 @@ acquire_lock() {
 
   local tries=0
   while ! mkdir "$LOCK_DIR" 2>/dev/null; do
-    local owner
-    owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || echo '?')"
-    # Reap a lock whose owner is gone.
-    if [ "$owner" != '?' ] && ! kill -0 "$owner" 2>/dev/null; then
+    local owner age
+    owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || echo '')"
+    age="$(path_age_secs "$LOCK_DIR" 2>/dev/null || echo 0)"
+
+    # No pid file: a run died between taking the lock and writing its pid. Give it a
+    # few seconds to be sure, then clear it.
+    if [ -z "$owner" ] && [ "${age:-0}" -gt 20 ]; then
       rm -rf "$LOCK_DIR"; continue
     fi
+
+    # The owner is gone or is a zombie. Nothing is running, so take the lock.
+    if [ -n "$owner" ] && ! pid_alive "$owner"; then
+      rm -rf "$LOCK_DIR"; continue
+    fi
+
+    # Backstop: a run that has held the lock for six hours is not coming back.
+    if [ "${age:-0}" -gt 21600 ]; then
+      warn "Clearing a lock held since $(( age / 3600 ))h ago by pid $owner."
+      rm -rf "$LOCK_DIR"; continue
+    fi
+
     tries=$((tries+1))
     if [ "$tries" -gt 3 ]; then
       bad "Another agent-os-plus command is running (pid $owner)."
-      say "Wait for it to finish, or if it crashed: rm -rf '$LOCK_DIR'"
+      say "Wait for it to finish, or clear it with: rm -rf '$LOCK_DIR'"
       exit 1
     fi
     info "Waiting for another run to finish (pid $owner)"
@@ -489,4 +528,44 @@ ask_line() { # ask_line "prompt: "  -> echoes the answer, empty when non-interac
     read -r a || a=""
   fi
   printf '%s' "$a"
+}
+
+# ---------- compact status rows ------------------------------------------------
+# Two voices, on purpose.
+#
+#   ok/bad/warn/fix (above) are the DETAIL voice: preflight.sh uses them to explain
+#   one thing thoroughly, with the command that fixes it.
+#
+#   the rows below are the OVERVIEW voice: one aligned line per thing, no fix lines,
+#   no headers. setup.sh uses these so a normal run is a short list you can read at a
+#   glance instead of several screens of other scripts talking.
+#
+# AOS_VERBOSE=1 turns the overview back into the detail, by letting child scripts
+# print straight through instead of into a log.
+AOS_VERBOSE="${AOS_VERBOSE:-0}"
+
+_row() { # _row <mark> <colour> <label> [detail]
+  printf '  %s%-4s%s  %-19s %s%s%s\n' "$2" "$1" "$C_RST" "$3" "$C_DIM" "${4:-}" "$C_RST"
+}
+row_ok()   { _row 'ok'   "$C_GRN" "$1" "${2:-}"; }
+row_todo() { _row 'todo' "$C_YEL" "$1" "${2:-}"; }
+row_fail() { _row 'fail' "$C_RED" "$1" "${2:-}"; }
+
+# A row that is replaced in place once the work finishes, so a long install shows what
+# it is doing without leaving a trail of half-finished lines behind. Non-terminal output
+# (a pipe, a log, CI) gets both lines instead, because there is no cursor to move.
+row_working() {
+  if [ -t 1 ]; then
+    printf '  %s..  %s  %-19s %s%s%s' "$C_DIM" "$C_RST" "$1" "$C_DIM" "${2:-}" "$C_RST"
+  else
+    _row '..' "$C_DIM" "$1" "${2:-}"
+  fi
+}
+row_done() { # row_done ok|todo|fail <label> [detail]
+  [ -t 1 ] && printf '\r\033[K'
+  case "$1" in
+    ok)   row_ok   "$2" "${3:-}" ;;
+    todo) row_todo "$2" "${3:-}" ;;
+    *)    row_fail "$2" "${3:-}" ;;
+  esac
 }
