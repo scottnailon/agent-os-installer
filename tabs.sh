@@ -9,6 +9,7 @@
 #   ./tabs.sh --check <id>       verify one tab without changing anything
 #   ./tabs.sh --recommended      install the tabs marked 'take', in order
 #   ./tabs.sh --no-prompt        never block on a human step, skip that tab and note it
+#   ./tabs.sh --count            "5 of 20", for scripts that just want the number
 #
 # Every tab checks its prerequisites first and stops rather than half-installing.
 # Keys come from the vault (./vault.sh) via ./keys.sh, never entered here.
@@ -33,9 +34,10 @@ while [ $# -gt 0 ]; do
     --add) MODE=add; ARG="${2:-}"; shift 2 ;;
     --check) MODE=check; ARG="${2:-}"; shift 2 ;;
     --recommended) MODE=recommended; shift ;;
+    --count) MODE=count; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
     --no-prompt) AOS_NOPROMPT=1; export AOS_NOPROMPT; shift ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) warn "unknown option: $1"; shift ;;
   esac
 done
@@ -549,7 +551,17 @@ do_recommended() {
   return 0
 }
 
+# Machine-readable, for setup.sh's one-line summary. No colour, no headers.
+do_count() {
+  local id n=0 total=0
+  for id in $(all_ids); do
+    total=$((total+1))
+    verify_tab "$id" && n=$((n+1))
+  done
+  printf '%s of %s\n' "$n" "$total"
+}
+
 case "$MODE" in
   status) do_status ;; list) do_list ;; add) do_add ;;
-  check) do_check ;; recommended) do_recommended ;;
+  check) do_check ;; recommended) do_recommended ;; count) do_count ;;
 esac
