@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# aos - the one command to remember.
+#
+#   ./aos              install whatever is missing
+#   ./aos status       what is working right now
+#   ./aos check        the detailed per-stage check, with a fix line for each
+#   ./aos keys         add or check your API keys
+#   ./aos tabs         the optional tabs
+#   ./aos update       update the app and every project behind the tabs
+#   ./aos audit        where keys can currently be read in the clear
+#   ./aos log          the transcript of the last setup run
+#   ./aos help
+#
+# Nothing is hidden behind this. Each word is a thin wrapper over the script that
+# already did the work, every extra argument passes straight through, and the scripts
+# stay callable on their own. `./aos keys --check` is exactly `./keys.sh --check`.
+#
+# REFERENCE.md lists every script and every flag, for when you want the long form.
+
+set -uo pipefail
+D="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
+
+cmd="${1:-setup}"
+[ $# -gt 0 ] && shift
+
+# A fresh clone is not executable until something chmods it, and that something used to
+# be setup.sh, which you could not run yet. Fix it here so `./aos` works on a bare clone.
+chmod +x "$D"/*.sh "$D/aos" 2>/dev/null || true
+
+case "$cmd" in
+  setup|install|"")   exec "$D/setup.sh" "$@" ;;
+  status|st)          exec "$D/setup.sh" --status "$@" ;;
+  check|preflight)    exec "$D/preflight.sh" "$@" ;;
+  keys|key)           [ $# -eq 0 ] && set -- --setup
+                      exec "$D/keys.sh" "$@" ;;
+  tabs|tab)           exec "$D/tabs.sh" "$@" ;;
+  update|upgrade)     exec "$D/update.sh" "$@" ;;
+  audit|security)     exec "$D/vault.sh" --audit "$@" ;;
+  vault)              exec "$D/vault.sh" "$@" ;;
+  test)               exec "$D/test.sh" "$@" ;;
+  uninstall)          exec "$D/uninstall.sh" "$@" ;;
+  schedule)           exec "$D/schedule.sh" "$@" ;;
+  health)             exec "$D/healthcheck.sh" "$@" ;;
+  log)
+    f="$HOME/.agent-os-install/setup.log"
+    [ -f "$f" ] || { echo "No setup log yet. Run ./aos first."; exit 1; }
+    ${PAGER:-less} "$f" 2>/dev/null || cat "$f"
+    ;;
+  version|--version|-V)
+    printf 'agent-os-plus %s\n' "$(cat "$D/VERSION" 2>/dev/null || echo unknown)"
+    ;;
+  help|--help|-h)     usage ;;
+  *)
+    echo "aos: no such command: $cmd"
+    echo ""
+    usage
+    exit 1
+    ;;
+esac
