@@ -49,14 +49,18 @@ OLD_TAG="# agent-os-installer"
 HC="$SCRIPT_DIR/healthcheck.sh"
 UP="$SCRIPT_DIR/update.sh"
 
-have crontab || die "crontab not found. Install cron ($(pkg_install_hint cron)) or schedule these yourself."
-
+# Check what YOU typed before checking what the machine has. A typo in --time is your
+# mistake to hear about, and hearing "crontab not found" instead sends you off
+# installing cron only to be told the time was wrong anyway. It also made the
+# out-of-range test fail on any machine without cron, which is most CI runners.
 HH="${AT%%:*}"; MM="${AT##*:}"
 case "$HH" in ''|*[!0-9]*) die "Bad --time '$AT'. Use HH:MM, e.g. 07:00" ;; esac
 case "$MM" in ''|*[!0-9]*) die "Bad --time '$AT'. Use HH:MM, e.g. 07:00" ;; esac
 HH="$((10#$HH))"; MM="$((10#$MM))"
 [ "$HH" -ge 0 ] && [ "$HH" -le 23 ] || die "Hour must be 0-23, got $HH"
 [ "$MM" -ge 0 ] && [ "$MM" -le 59 ] || die "Minute must be 0-59, got $MM"
+
+have crontab || die "crontab not found. Install cron ($(pkg_install_hint cron)) or schedule these yourself."
 
 current() { crontab -l 2>/dev/null || true; }
 without_ours() { current | grep -v "$TAG" | grep -v "$OLD_TAG" || true; }
