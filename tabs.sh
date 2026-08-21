@@ -8,6 +8,7 @@
 #   ./tabs.sh --add <id>         install one tab, with dependency checks and a verify step
 #   ./tabs.sh --check <id>       verify one tab without changing anything
 #   ./tabs.sh --recommended      install the tabs marked 'take', in order
+#   ./tabs.sh --no-prompt        never block on a human step, skip that tab and note it
 #
 # Every tab checks its prerequisites first and stops rather than half-installing.
 # Keys come from the vault (./vault.sh) via ./keys.sh, never entered here.
@@ -33,7 +34,8 @@ while [ $# -gt 0 ]; do
     --check) MODE=check; ARG="${2:-}"; shift 2 ;;
     --recommended) MODE=recommended; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    --no-prompt) AOS_NOPROMPT=1; export AOS_NOPROMPT; shift ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *) warn "unknown option: $1"; shift ;;
   esac
 done
@@ -60,12 +62,24 @@ take_ids()  { jq_ 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")
 
 confirm() {
   [ "$ASSUME_YES" = 1 ] && return 0
+  is_interactive || { dim "no terminal, declining: $1"; return 1; }
   printf '%s%s [y/N] %s' "$C_YEL" "$1" "$C_RST"; read -r a
   case "$a" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
 }
 checkpoint() {
   hdr "HUMAN STEP"; say "  $1"; [ -n "${2:-}" ] && dim "  verify: $2"
+  is_interactive || { warn "Left for you. This tab stays unverified until it is done."; return 0; }
   printf '%sPress return when done, or Ctrl-C to stop. %s' "$C_YEL" "$C_RST"; read -r _
+}
+
+# Tabs that cannot be installed without a human typing something only they know:
+# a site domain, a WordPress password, a profile name. In an unattended run they
+# are named and skipped, never half-installed.
+needs_a_human() { # needs_a_human "what it will ask for"
+  is_interactive && return 1
+  warn "Skipped: this tab needs $1, and there is no terminal to ask on."
+  dim "Run ./tabs.sh --add <id> from a terminal when you are ready."
+  return 0
 }
 
 # Fetched ONCE via a machine-readable interface. Grepping human-readable output was
@@ -227,6 +241,7 @@ wp_bulk_import() { # wp_bulk_import <cfg>
 }
 
 add_wordpress() {
+  needs_a_human "your site domain, username and application password" && return 1
   local cfg="$HOME/.agentic-os/wordpress.json"
   mkdir -p "$HOME/.agentic-os"
   if [ -f "$cfg" ]; then
@@ -356,6 +371,7 @@ add_openseo() {
 }
 
 add_hermes_profile() {
+  needs_a_human "a profile name you choose" && return 1
   have hermes || { bad "Requires Hermes"; fix "./install.sh --stage 5"; return 1; }
   say "Each profile is an isolated instance: its own model, persona, memory and thread."
   printf 'Profile name (e.g. a client or a role): '; read -r pname
@@ -520,12 +536,17 @@ do_list() {
 
 do_recommended() {
   hdr "Installing the recommended set"
-  dim "Everything marked 'take'. Each still checks its own prerequisites."
-  local id
+  dim "Everything marked 'take'. Anything already verifying is left alone, anything"
+  dim "missing is installed, and a tab that cannot be finished is skipped, not fatal."
+  local id skipped=""
   for id in $(take_ids); do
-    ARG="$id"; say ""; do_add || warn "Skipped $id"
+    ARG="$id"; say ""
+    if ! do_add; then warn "Skipped $id"; skipped="$skipped $id"; fi
   done
-  say ""; do_status
+  say ""
+  [ -n "$skipped" ] && { warn "Not installed:$skipped"; dim "Add any of them later with ./tabs.sh --add <id>"; say ""; }
+  do_status
+  return 0
 }
 
 case "$MODE" in
