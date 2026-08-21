@@ -30,7 +30,7 @@ itself is community content and requires a paid membership, see below.
 
 | | |
 |---|---|
-| **One command** | `./setup.sh` runs the whole thing in dependency order and resumes where it stopped |
+| **One command** | `./setup.sh` checks what you already have, installs whatever is missing, and carries on past anything that fails |
 | **One key store** | Type each key once. It gets written to all eight places Agent OS reads keys from, at mode 600. Typed hidden, never passed as a command argument |
 | **Security audit** | Finds keys pasted into shell history, `.env` files sitting inside a git repo, and loose file permissions. This is how keys usually leak |
 | **Guided key setup** | One key at a time, showing cost, what it unlocks and where to get it, validated against the provider the moment you paste it |
@@ -95,7 +95,9 @@ chmod +x *.sh
 ./setup.sh
 ```
 
-It stops and asks whenever it needs something. Everything else is automatic.
+It works out what is already on the machine, installs everything that is not, and
+keeps going. It stops only for the things nobody can guess for you: an API key, a
+browser login. Everything else it does itself.
 
 **That is the whole thing.** You can stop reading here.
 
@@ -108,12 +110,15 @@ Seven steps, about 15 minutes, mostly waiting.
 | | Step | You do |
 |---|---|---|
 | 1 | Checks what you already have | nothing |
-| 2 | Installs missing basics | say yes |
-| 3 | Sets up one place to keep your API keys | say yes |
+| 2 | Installs the missing basics | nothing |
+| 3 | Sets up one place to keep your API keys | nothing |
 | 4 | Builds and starts the dashboard | nothing, takes a few minutes |
 | 5 | Asks about API keys, one at a time | add or skip each |
-| 6 | Offers the optional extras | yes or no |
+| 6 | Installs the optional extras it can | nothing |
 | 7 | Runs the security audit | nothing |
+
+Anything already working is detected and left alone, so a second run is quick and
+changes nothing it does not have to.
 
 When it finishes, open **http://localhost:3737** in Chrome.
 
@@ -129,8 +134,17 @@ choice, and each one you skip just leaves that tab quiet.
 ./setup.sh --dry-run
 ```
 
-**If something fails, it stops.** It will not carry on regardless. It tells you what to
-fix, then you re-run `./setup.sh` and it resumes where it left off.
+**If something fails, it keeps going.** One broken thing no longer hides everything
+behind it. The failure is recorded, the rest of the setup runs, and the summary at the
+end lists exactly what is still missing and the one command that fixes it. Re-run
+`./setup.sh` afterwards and it picks up only what is left.
+
+Want the old behaviour? `./setup.sh --stop-on-fail` halts at the first failing gate, and
+`./setup.sh --ask` confirms each install and pauses between steps.
+
+**Running it unattended** (cron, CI, over SSH with no terminal): `./setup.sh --no-keys`
+raises no prompts at all. Anything that genuinely needs a human is named in the summary
+and skipped rather than left waiting on a question nobody will answer.
 
 ## If you get stuck
 
@@ -310,7 +324,7 @@ downloaded pack, so it could not be fully automated in any case.
 | `schedule.sh` | Puts the health check on a daily cron |
 | `uninstall.sh` | Removes what this created, in graduated stages |
 | `test.sh` | Automated tests in a sandboxed HOME. Run after any change |
-| `test-regressions.sh` | Guards two bug classes that are easy to reintroduce. Asserts behaviour, not text |
+| `test-regressions.sh` | Guards the bug classes that are easy to reintroduce. Asserts behaviour, not text |
 | `lib.sh` | Shared gate checks, so preflight and install can never disagree |
 | `bootstrap.ps1` | Windows to WSL2 handoff |
 | `RUNBOOK.md` | The agent-facing document, dependency-ordered |
@@ -328,11 +342,14 @@ Every script also accepts `--version` and, where it changes anything, `--dry-run
 
 **setup.sh** — the one command that runs everything
 ```
---dry-run     show every step, change nothing
---minimal     spine only, skip the optional tabs
---yes         assume yes to safe prompts (still stops for keys and logins)
---app-dir P   point at the Agent OS source folder explicitly
---port N      use a port other than 3737
+--dry-run       show every step, change nothing
+--minimal       spine only, skip the optional tabs  (--no-tabs is the same)
+--ask           confirm each install and pause between steps
+--stop-on-fail  halt at the first failing gate instead of stepping over it
+--no-keys       skip the key wizard and every other prompt, for unattended runs
+--app-dir P     point at the Agent OS source folder explicitly
+--port N        use a port other than 3737
+--yes           accepted and ignored, this is now the default
 ```
 
 **preflight.sh** — read-only health check
@@ -346,7 +363,9 @@ Every script also accepts `--version` and, where it changes anything, `--dry-run
 **install.sh** — the six-stage spine
 ```
 --from N            resume at stage N
---stage N           run only stage N
+--stage N           run only stage N (bypasses the already-installed skip)
+--keep-going        record a failing gate and carry on to the next stage
+--no-prompt         never block on a human step, name it and skip it
 --no-hermes         skip stage 5 (records it as intentional)
 --fix-claude-tab    clear an empty ANTHROPIC_API_KEY and exit
 ```
@@ -385,7 +404,9 @@ Every script also accepts `--version` and, where it changes anything, `--dry-run
 --list          what each tab needs, costs and unlocks
 --add ID        install one tab
 --check ID      verify one tab
---recommended   install everything marked 'take'
+--recommended   install everything marked 'take' that is not already there
+--yes           do not ask before installing each one
+--no-prompt     never block on a human step, name the tab and skip it
 ```
 
 **update.sh** — the app and every project behind the tabs
@@ -484,8 +505,8 @@ see what exists, and this one to see the order things need to come up in.
 ## Testing
 
 ```bash
-./test.sh                 # 83 tests in a sandboxed HOME, your real config untouched
-./test-regressions.sh     # 4 more, guarding bugs that have actually happened here
+./test.sh                 # 87 tests in a sandboxed HOME, your real config untouched
+./test-regressions.sh     # 8 more, guarding bugs that have actually happened here
 ./test.sh --verbose       # show why a failure happened
 ./test.sh --only keys     # a subset
 ```
