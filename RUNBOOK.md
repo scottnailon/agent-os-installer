@@ -63,6 +63,12 @@ Full instructions are in `README.md`. The short form:
 `update.sh` and `vault.sh`. Every extra argument passes straight through and every
 script stays callable on its own, so nothing here is hidden behind it.
 
+`setup.sh` runs each gate before its stage. A gate that already passes means that stage
+is already installed, so it is skipped rather than re-run. A gate that fails is recorded
+and the run continues, because a single failure at stage 2 used to hide whether stages 3
+to 5 would have worked. The summary at the end is the authoritative list of what is
+still missing.
+
 A normal run prints one line per stage and appends everything the child scripts said to
 `~/.agent-os-install/setup.log`. When diagnosing, read that log rather than re-running
 with `--verbose`: it already has the previous run in it.
