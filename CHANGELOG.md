@@ -3,6 +3,24 @@
 > This is the changelog for **Agent OS Plus**, not for Agent OS itself.
 > The pack's own changelog is one level up at `../CHANGELOG.md`.
 
+## 1.1.0
+
+**One command, and it keeps going**
+- `./setup.sh` now installs everything it finds missing without stopping to ask. The
+  old confirm-each-step flow is still there as `./setup.sh --ask`
+- A failing stage is recorded and stepped over instead of ending the run, so one broken
+  thing no longer hides whether anything behind it would have worked. `--stop-on-fail`
+  restores the old halt
+- Every stage runs its gate first. A gate that already passes means that stage is
+  already installed, so it is skipped rather than re-run
+- One summary at the end: what was already in place, what got installed this run, what
+  is still failing, and the single command that fixes the lowest failure
+- `./setup.sh --no-keys` and any run without a terminal raise no prompts at all. Steps
+  that genuinely need a human are named and skipped, so cron and CI runs cannot hang
+- `install.sh --keep-going` and `install.sh --no-prompt`, `tabs.sh --no-prompt`
+- `tabs.sh --recommended` reports which tabs it could not finish instead of failing quietly
+- `--yes` on `setup.sh` is accepted and ignored, since it is now the default
+
 ## 1.0.0
 
 First release.

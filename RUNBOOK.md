@@ -50,10 +50,18 @@ is what makes the whole system sing.
 Full instructions are in `README.md`. The short form:
 
 ```bash
-./setup.sh              # everything, in dependency order
+./setup.sh              # everything missing, installed, in dependency order
+./setup.sh --no-keys    # same, unattended: no prompts, human steps named and skipped
+./setup.sh --ask        # confirm each install, pause between steps
 ./preflight.sh          # read-only, re-verify at any time
-./test.sh               # 83 tests, sandboxed
+./test.sh               # sandboxed test suite
 ```
+
+`setup.sh` runs each gate before its stage. A gate that already passes means that stage
+is already installed, so it is skipped rather than re-run. A gate that fails is recorded
+and the run continues, because a single failure at stage 2 used to hide whether stages 3
+to 5 would have worked. The summary at the end is the authoritative list of what is
+still missing.
 
 Mark any stage you deliberately skip, so the daily health check treats it as intentional
 rather than flagging it every morning:
