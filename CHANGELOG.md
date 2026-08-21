@@ -3,6 +3,50 @@
 > This is the changelog for **Agent OS Plus**, not for Agent OS itself.
 > The pack's own changelog is one level up at `../CHANGELOG.md`.
 
+## 1.2.0
+
+**A quieter run**
+- A normal `./setup.sh` is now one aligned line per thing instead of several screens of
+  four scripts talking over each other. Nothing is lost: the full transcript of every
+  run is appended to `~/.agent-os-install/setup.log`, and `--verbose` prints it to the
+  screen exactly as before
+- Each line says what it is and, when it is not ready, what it is waiting on in plain
+  words. The summary carries the commands, so a row stays a row
+- `./setup.sh --status` shows the same picture and installs nothing. It takes no lock
+  either, so it works while a setup is running
+
+**One command to remember**
+- `./aos` dispatches to everything: `status`, `check`, `keys`, `tabs`, `update`,
+  `audit`, `log`, `help`. Extra arguments pass straight through, so
+  `./aos tabs --add wordpress` is `./tabs.sh --add wordpress`
+- It chmods the scripts itself, so a bare clone works without `chmod +x *.sh` first
+- Every script stays callable on its own. Nothing is hidden behind the dispatcher
+
+**Shorter docs**
+- README cut from 24KB to 8KB: install it, run it, get unstuck. The full flag surface,
+  the mental model and the long explanations moved to `REFERENCE.md`
+
+**Fixed**
+- A crashed run could hold the install lock forever. The reaper used `kill -0` to decide
+  whether the owner was alive, and `kill -0` succeeds on a **zombie**, a process that
+  has exited but has not been reaped by its parent yet. `kill -9` on a stuck run left
+  exactly that, so the lock looked live and every later run sat at "Waiting for another
+  run to finish" for a process that was already dead. It now reads the process state and
+  treats `Z` as gone
+- A run that died between creating the lock and writing its pid left a lock with no
+  owner, which nothing could ever reap. Now cleared after 20 seconds
+- Any lock held for more than six hours is cleared with a warning
+- `./schedule.sh --time 99:00` reported "crontab not found" instead of "Hour must be
+  0-23" on any machine without cron, because it checked the environment before it
+  checked what you typed. Your input is validated first now. This is why one test had
+  been failing since 1.0.0 on every CI runner
+
+**Added**
+- `tabs.sh --count` prints "5 of 20", for the one-line summary
+- Six more regression tests: the quiet run stays quiet, the log still gets everything,
+  `--verbose` is still verbose, a zombie cannot hold the lock, an ownerless lock clears
+  itself, and `./aos` works on a clone nothing has chmod'd yet
+
 ## 1.1.0
 
 **One command, and it keeps going**
